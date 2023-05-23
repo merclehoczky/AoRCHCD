@@ -3,6 +3,7 @@
 
 library(tidyverse)
 library(corrplot)
+library(ggplot2)
 
 # Load data ---------------------------------------------------------------
 
@@ -79,6 +80,8 @@ df <- drop_na(df)
 
 
 # Correlations ------------------------------------------------------------
+# Initialize file path
+
 df %>% 
   mutate(hospital_expire_flag = as.numeric(hospital_expire_flag), anticoagulants = as.numeric(anticoagulants), 
          gender = as.numeric(gender), race = as.numeric(race), age = as.numeric(age),
@@ -93,5 +96,5 @@ df %>%
                  tl.col = "black",
                  lower.col = "black",
                  number.cex = 1)
-
+ggsave(path = "figures", filename = "Correlation matrix.png")
 
