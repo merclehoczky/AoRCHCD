@@ -22,41 +22,78 @@ df$gender <- as.factor(df$gender)
 df$race <- as.factor(df$race)
 df$sepsis3 <- as.factor(df$sepsis3)
 df$anticoagulants <- as.factor(df$anticoagulants)
-df$icd_code <- as.factor(df$icd_code)
-df$icd_version <- as.factor(df$icd_version)
 df$hospital_expire_flag <- as.factor(df$hospital_expire_flag)
+df$chronic_pulmonary_disease <- as.factor(df$chronic_pulmonary_disease)
+df$diabetes_with_cc <- as.factor(df$diabetes_with_cc)
+df$diabetes_without_cc <- as.factor(df$diabetes_without_cc)
+df$congestive_heart_failure <- as.factor(df$congestive_heart_failure)
+df$renal_disease <- as.factor(df$renal_disease)
+
+# Regroup race ------------------------------------------------------------
+
+subcategory_mapping <- c(
+  #WHITE
+  "WHITE" = "WHITE",
+  "PORTUGUESE" = "WHITE",
+  "WHITE - BRAZILIAN" = "WHITE",
+  "WHITE - EASTERN EUROPEAN" = "WHITE",
+  "WHITE - OTHER EUROPEAN" = "WHITE",
+  "WHITE - RUSSIAN" = "WHITE",
+  
+  #BLACK 
+  "BLACK" = "BLACK",
+  "BLACK/AFRICAN AMERICAN" = "BLACK",
+  "BLACK/AFRICAN" = "BLACK",
+  "BLACK/CAPE VERDEAN" = "BLACK",
+  "BLACK/CARIBBEAN ISLAND" = "BLACK",
+  
+  #HISPANIC
+  "HISPANIC OR LATINO" = "HISPANIC",
+  "HISPANIC/LATINO - CENTRAL AMERICAN" = "HISPANIC",
+  "HISPANIC/LATINO - COLUMBIAN" = "HISPANIC",
+  "HISPANIC/LATINO - CUBAN" = "HISPANIC",
+  "HISPANIC/LATINO - DOMINICAN" = "HISPANIC",
+  "HISPANIC/LATINO - GUATEMALAN" = "HISPANIC",
+  "HISPANIC/LATINO - HONDURAN" = "HISPANIC",
+  "HISPANIC/LATINO - MEXICAN" = "HISPANIC", 
+  "HISPANIC/LATINO - PUERTO RICAN" = "HISPANIC",
+  "HISPANIC/LATINO - SALVADORAN" = "HISPANIC",
+  "SOUTH AMERICAN" = "HISPANIC",
+  
+  #ASIAN
+  "ASIAN" = "ASIAN",
+  "ASIAN - ASIAN INDIAN" = "ASIAN",
+  "ASIAN - CHINESE" = "ASIAN",
+  "ASIAN - KOREAN" = "ASIAN",
+  "ASIAN - SOUTH EAST ASIAN" = "ASIAN",
+  
+  #NATIVE AMERICAN
+  "AMERICAN INDIAN/ALASKA NATIVE" = "NATIVE AMERICAN",
+  
+  #PACIFIC ISLANDER
+  "NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER" = "PACIFIC ISLANDER",
+  
+  #MIXED
+  "MULTIPLE RACE/ETHNICITY" = "MIXED",
+  
+  #UNKNOWN
+  "UNKNOWN" = "UNKNOWN",
+  "PATIENT DECLINED TO ANSWER" = "UNKNOWN",
+  "UNABLE TO OBTAIN" = "UNKNOWN",
+  "OTHER" = "UNKNOWN"
+)
+
+# Rename the subcategories into larger categories
+df$race <- recode(df$race, !!!subcategory_mapping)
 
 
 # Fix dates ---------------------------------------------------------------
 
 
-# Calculate Deathtime to ICU_in
+# Find out ICU elapsed time  ----
 # Convert timestamps to POSIXct format
-timestamp1 <- as.POSIXct(df$icu_intime, format = "%Y-%m-%d %H:%M:%OS")
-timestamp2 <- as.POSIXct(df$deathtime, format = "%Y-%m-%d %H:%M:%OS")
-
-# Calculate time difference
-time_difference <- difftime(timestamp2, timestamp1, units = 'hours')
-
-# Add it to the dataset
-df$time_in_death <-as.numeric(time_difference)
-
-# Calculate Deathtime to ICU_out
-# Convert timestamps to POSIXct format
-timestamp1 <- as.POSIXct(df$icu_outtime, format = "%Y-%m-%d %H:%M:%OS")
-timestamp2 <- as.POSIXct(df$deathtime, format = "%Y-%m-%d %H:%M:%OS")
-
-# Calculate time difference
-time_difference <- difftime(timestamp2, timestamp1, units = 'hours')
-
-# Add it to the dataset
-df$time_out_death <-as.numeric(time_difference)
-
-
-# Find out ICU elapsed time 
-# Convert timestamps to POSIXct format
-timestamp1 <- as.POSIXct(df$icu_intime, format = "%Y-%m-%d %H:%M:%OS")
-timestamp2 <- as.POSIXct(df$icu_outtime, format = "%Y-%m-%d %H:%M:%OS")
+timestamp1 <- as.POSIXct(df$intime, format = "%Y-%m-%d %H:%M:%OS")
+timestamp2 <- as.POSIXct(df$outtime, format = "%Y-%m-%d %H:%M:%OS")
 
 # Calculate time difference
 time_difference <- difftime(timestamp2, timestamp1, units = 'hours')
@@ -67,27 +104,54 @@ time_difference_formatted <- format(time_difference, format = "%H:%M:%S")
 # Add it to the dataset
 df$time_icu_elapsed <-as.numeric(time_difference)
 
-# Replace NAs with 0 as is did_not_die
+
+
+# Replace NAs with 0 as is did_not_die ----
 #df$deathtime <- as.numeric(df$deathtime)
 #df$deathtime <- ifelse(is.na(df$deathtime), as.POSIXct(0, origin = "1970-01-01"), df$deathtime)
 df$deathtime[is.na(df$deathtime)] <- 0
-df$time_in_death[is.na(df$time_in_death)] <- 0
-df$time_out_death[is.na(df$time_out_death)] <- 0
+
+# Calculate deathtime: intime < deathtime <= dischargetime ----
+# Convert time variables to numeric values
+df$intime_numeric <- as.numeric(df$intime)
+df$deathtime_numeric <- as.numeric(df$deathtime)
+df$discharge_time_numeric <- as.numeric(df$dischtime)
+
+df$death <- 0
+
+# Set 'death' column to 1 for rows satisfying the conditions
+df[df$intime_numeric < df$deathtime_numeric & df$deathtime_numeric <= df$discharge_time_numeric, "death"] <- 1
+
+# ONLY keep people who died during this admission----
+
+df <- df[(df$hospital_expire_flag == 1 & df$death == 1) | (df$hospital_expire_flag == 0 & df$death == 0), ]
 
 
-#Remove NAs
+#Remove NAs----
 df <- drop_na(df)
 
+#Remove row_num
+df <- df %>% select(-row_num)
 
 # Correlations ------------------------------------------------------------
 # Initialize file path
 
 df %>% 
-  mutate(hospital_expire_flag = as.numeric(hospital_expire_flag), anticoagulants = as.numeric(anticoagulants), 
-         gender = as.numeric(gender), race = as.numeric(race), age = as.numeric(age),
-         icd_code = as.numeric(icd_code), time_icu_elapsed = as.numeric(time_icu_elapsed)) %>% 
-  select(-hadm_id, -subject_id, -sepsis3, -icu_intime, -icu_outtime, -deathtime, -icd_version, 
-         -time_in_death, -time_out_death) %>% 
+  mutate(gender = as.numeric(gender), age = as.numeric(age),  race = as.numeric(race), 
+         sofa_score = as.numeric(sofa_score), oasis = as.numeric(oasis),
+         charlson_comorbidity_index = as.numeric(charlson_comorbidity_index),
+         hospital_expire_flag = as.numeric(hospital_expire_flag), 
+         chronic_pulmonary_disease = as.numeric(chronic_pulmonary_disease),
+         diabetes_with_cc = as.numeric(diabetes_with_cc), 
+         diabetes_without_cc = as.numeric(diabetes_without_cc),
+         congestive_heart_failure = as.numeric(congestive_heart_failure),
+         renal_disease = as.numeric(renal_disease),
+         anticoagulants = as.numeric(anticoagulants), 
+         time_icu_elapsed = as.numeric(time_icu_elapsed)) %>% 
+  select(-subject_id, -hadm_id, -stay_id, 
+         -admittime, -dischtime, -intime, -outtime,
+         -sepsis3,  -deathtime, 
+         -intime_numeric, -deathtime_numeric, -discharge_time_numeric, -death) %>% 
   cor() %>% 
   corrplot.mixed(order = "hclust",
                  upper = "circle", 
