@@ -14,11 +14,18 @@ doParallel::registerDoParallel(cl) # Register the parallel backend
 showConnections() # Shows the connections currently active (should match core numberer)
 
 # Prepare data ------------------------------------------------------------
-
 df <- df %>% 
-  select(-hadm_id, -subject_id, -sepsis3, 
-         -icu_intime, -icu_outtime, -deathtime) %>% # Remove identifier columns
-  mutate(hospital_expire_flag = as.factor(hospital_expire_flag)) # Ensure target variable is a class (binary)
+  # Remove identifier, death and time columns
+  select(-subject_id, -hadm_id, -stay_id, 
+         -admittime, -dischtime, -intime, -outtime,
+         -sepsis3,  -deathtime, 
+         -intime_numeric, -deathtime_numeric, -discharge_time_numeric, -death) %>% 
+  mutate(time_icu_elapsed = as.numeric(time_icu_elapsed),
+         hospital_expire_flag = as.factor(hospital_expire_flag)) # Ensure target variable is a class (binary)
+
+# Check
+
+summary(df)
 
 # Split the dataset -------------------------------------------------------
 
