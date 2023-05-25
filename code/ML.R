@@ -81,7 +81,7 @@ rf_grid <- grid_regular(range_set(mtry(), c(3,5)),
 #GBT
 gbt_grid <- grid_regular(range_set(mtry(), c(3,5)),
                          range_set(trees(), c(100,300)),
-                         range_set(learn_rate(trans = NULL), c(0.05, 0.1)),
+                         range_set(learn_rate(trans = NULL), c(0.05, 0.5)),
                          levels = 4)
 #NNET
 nnet_grid <- grid_regular(range_set(hidden_units(), c(1,10)),
