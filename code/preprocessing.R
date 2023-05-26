@@ -14,13 +14,21 @@ df <- as.data.frame(df)
 
 summary(df)
 
-#Preprocessing ------------------------------------------------------------
+# Preprocessing ------------------------------------------------------------
 
+# Remove identifiers and extra columns
+df <- df %>% 
+  select(-subject_id, -hadm_id, -stay_id, 
+         -first_hosp_stay, -first_icu_stay, -sepsis3) 
+
+# Rename age column
+df <- df %>% 
+  rename(age = admission_age) 
+  
 
 #Change categorical values into factors
 df$gender <- as.factor(df$gender)
 df$race <- as.factor(df$race)
-df$sepsis3 <- as.factor(df$sepsis3)
 df$anticoagulants <- as.factor(df$anticoagulants)
 df$hospital_expire_flag <- as.factor(df$hospital_expire_flag)
 df$chronic_pulmonary_disease <- as.factor(df$chronic_pulmonary_disease)
@@ -92,8 +100,8 @@ df$race <- recode(df$race, !!!subcategory_mapping)
 
 # Find out ICU elapsed time  ----
 # Convert timestamps to POSIXct format
-timestamp1 <- as.POSIXct(df$intime, format = "%Y-%m-%d %H:%M:%OS")
-timestamp2 <- as.POSIXct(df$outtime, format = "%Y-%m-%d %H:%M:%OS")
+timestamp1 <- as.POSIXct(df$icu_intime, format = "%Y-%m-%d %H:%M:%OS")
+timestamp2 <- as.POSIXct(df$icu_outtime, format = "%Y-%m-%d %H:%M:%OS")
 
 # Calculate time difference
 time_difference <- difftime(timestamp2, timestamp1, units = 'hours')
@@ -113,7 +121,7 @@ df$deathtime[is.na(df$deathtime)] <- 0
 
 # Calculate deathtime: intime < deathtime <= dischargetime ----
 # Convert time variables to numeric values
-df$intime_numeric <- as.numeric(df$intime)
+df$intime_numeric <- as.numeric(df$icu_intime)
 df$deathtime_numeric <- as.numeric(df$deathtime)
 df$discharge_time_numeric <- as.numeric(df$dischtime)
 
@@ -134,8 +142,21 @@ df <- drop_na(df)
 df <- df %>% select(-row_num)
 
 # Correlations ------------------------------------------------------------
-# Initialize file path
+# Set the desired width and height of the image
+image_width <- 10  # in inches
+image_height <- 8  # in inches
 
+# Calculate the corresponding resolution
+resolution <- 300  # pixels per inch
+
+# Calculate the actual width and height in pixels
+image_width_pixels <- image_width * resolution
+image_height_pixels <- image_height * resolution
+
+# Set the resolution and size for the PNG device
+png(file = "figures/Correlation matrix.png", width = image_width_pixels, height = image_height_pixels, res = resolution)
+
+# Create plot
 df %>% 
   mutate(gender = as.numeric(gender), age = as.numeric(age),  race = as.numeric(race), 
          sofa_score = as.numeric(sofa_score), oasis = as.numeric(oasis),
@@ -148,9 +169,7 @@ df %>%
          renal_disease = as.numeric(renal_disease),
          anticoagulants = as.numeric(anticoagulants), 
          time_icu_elapsed = as.numeric(time_icu_elapsed)) %>% 
-  select(-subject_id, -hadm_id, -stay_id, 
-         -admittime, -dischtime, -intime, -outtime,
-         -sepsis3,  -deathtime, 
+  select(-admittime, -dischtime, -icu_intime, -icu_outtime, -deathtime, 
          -intime_numeric, -deathtime_numeric, -discharge_time_numeric, -death) %>% 
   cor() %>% 
   corrplot.mixed(order = "hclust",
@@ -160,5 +179,6 @@ df %>%
                  tl.col = "black",
                  lower.col = "black",
                  number.cex = 1)
-ggsave(path = "figures", filename = "Correlation matrix.png")
+dev.off()
+#ggsave(path = "figures", filename = "Correlation matrix.png")
 
