@@ -38,17 +38,17 @@ train_data <- training(df_split)
 test_data <- testing(df_split)
 
 set.seed(42) # Set seed to easily reproduce results
-train_folds <- vfold_cv(data = train_data, v = 10)
+train_folds <- vfold_cv(data = train_data, v = 10, strata = hospital_expire_flag)
 
 # Data pre-processing -----------------------------------------------------
 
 # Define recipe specification
 df_rec <- recipe(hospital_expire_flag ~ ., data = train_data)%>% 
   step_normalize(all_numeric_predictors()) %>% 
-  step_dummy(all_factor_predictors(), one_hot = TRUE)
+  step_dummy(all_factor_predictors(), one_hot = TRUE) %>% 
+  step_nzv()
 
 # Specify model type and computational engine -----------------------------
-
 
 
 #NNET
@@ -103,6 +103,7 @@ nnet_plot <- nnet_res %>%
   scale_x_log10(labels = scales::label_number()) +
   scale_color_viridis_d(option = "plasma", begin = .9, end = 0)
 
+ggsave("figures/Metrics NNet.png")
 # Select best tuning parameters -------------------------------------------
 
 #NNET
@@ -130,8 +131,6 @@ vi_df <-  nnet_fit %>%
   extract_fit_parsnip() %>% # extract the fit object 
   vi(scale = TRUE) #scale the variable importance scores so that the largest is 100
 
-png(file = "figures/Variable Importance.png", width = image_width_pixels, height = image_height_pixels, res = resolution)
-
 ci_plot <- ggplot(vi_df, aes(x = reorder(Variable, Importance), y = Importance)) +
   geom_col(fill = "#0072B2") +
   coord_flip() +
@@ -139,10 +138,8 @@ ci_plot <- ggplot(vi_df, aes(x = reorder(Variable, Importance), y = Importance))
        x = "Variable",
        y = "Importance")
 
-ggsave("figures/Variable Importance.png")
+ggsave("figures/Variable importance NNet.png")
 # Predict -----------------------------------------------------------------
-
-#RF
 
 #NNET 
 

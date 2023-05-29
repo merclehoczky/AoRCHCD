@@ -38,7 +38,7 @@ train_data <- training(df_split)
 test_data <- testing(df_split)
 
 set.seed(42) # Set seed to easily reproduce results
-train_folds <- vfold_cv(data = train_data, v = 10)
+train_folds <- vfold_cv(data = train_data, v = 10, strata = hospital_expire_flag)
 
 # Data pre-processing -----------------------------------------------------
 
@@ -104,7 +104,7 @@ gbt_plot <- gbt_res %>%
   scale_x_log10(labels = scales::label_number()) +
   scale_color_viridis_d(option = "plasma", begin = .9, end = 0)
 
-
+ggsave("figures/Metrics GBT.png")
 # Select best tuning parameters -------------------------------------------
 
 #GBT
@@ -125,7 +125,20 @@ final_wf_gbt <-
 #GBT
 gbt_fit <- fit(final_wf_gbt, train_data) # Does prep() and fit() in one step
 
+# Variable Importance -----------------------------------------------------
 
+vi_df <-  gbt_fit %>% 
+  extract_fit_parsnip() %>% # extract the fit object 
+  vi(scale = TRUE) #scale the variable importance scores so that the largest is 100
+
+ci_plot <- ggplot(vi_df, aes(x = reorder(Variable, Importance), y = Importance)) +
+  geom_col(fill = "#0072B2") +
+  coord_flip() +
+  labs(title = "Variable Importance Plot",
+       x = "Variable",
+       y = "Importance")
+
+ggsave("figures/Variable importance GBT.png")
 # Predict -----------------------------------------------------------------
 
 #GBT
